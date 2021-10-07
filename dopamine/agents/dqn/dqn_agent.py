@@ -369,8 +369,9 @@ class DQNAgent(object):
     if self.summary_writer is not None:
       with tf.compat.v1.variable_scope('Losses'):
         tf.compat.v1.summary.scalar('HuberLoss', tf.reduce_mean(huber_loss))
-        tf.compat.v1.summary.scalar('RegLoss', reg_loss)
-        tf.compat.v1.summary.scalar('Loss', tf.reduce_mean(loss))
+        if self.reg_weight > 0:
+          tf.compat.v1.summary.scalar('RegLoss', reg_loss)
+          tf.compat.v1.summary.scalar('Loss', tf.reduce_mean(loss))
     return self.optimizer.minimize(tf.reduce_mean(loss))
 
   def _build_sync_op(self):
