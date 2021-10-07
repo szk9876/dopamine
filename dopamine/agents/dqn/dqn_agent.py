@@ -102,7 +102,10 @@ class DQNAgent(object):
                    centered=True),
                summary_writer=None,
                summary_writing_frequency=500,
-               allow_partial_reload=False):
+               allow_partial_reload=False,
+               K=1,
+               reg_weight=0.0,
+               noise_stddev=0.0):
     """Initializes the agent and constructs the components of its graph.
 
     Args:
@@ -184,6 +187,9 @@ class DQNAgent(object):
     self.summary_writer = summary_writer
     self.summary_writing_frequency = summary_writing_frequency
     self.allow_partial_reload = allow_partial_reload
+    self.K = K
+    self.reg_weight = reg_weight
+    self.noise_stddev = noise_stddev
 
     with tf.device(tf_device):
       # Create a placeholder for the state input to the DQN network.
@@ -290,6 +296,53 @@ class DQNAgent(object):
     return self._replay.rewards + self.cumulative_gamma * replay_next_qt_max * (
         1. - tf.cast(self._replay.terminals, tf.float32))
 
+  def _build_reg_op(self):
+    # Sample K random states. 
+    # shape = (self.K, NATURE_DQN_OBSERVATION_SHAPE[0], NATURE_DQN_OBSERVATION_SHAPE[1], NATURE_DQN_STACK_SIZE)
+    # random_states = tf.random.uniform(
+    #   shape=shape, minval=0, maxval=1, dtype=tf.float32)
+
+    # Compute the network's outputs -> computing q-values for all actions. 
+    # random_q_values = self.online_convnet(random_states).q_values
+
+    # Select the first K states from the states sampled from the replay buffer.
+    states = self._replay.states[0:self.K]
+
+    # Normalize and cast to float dtype.
+    states = tf.cast(states, tf.float32)
+    states = states / 255
+
+    # Add Gaussian noise to states from the replay buffer.
+    # The standard deviation of the noise is a hyperparameter.
+    shape = (self.K, NATURE_DQN_OBSERVATION_SHAPE[0], NATURE_DQN_OBSERVATION_SHAPE[1], NATURE_DQN_STACK_SIZE)
+    gaussian_noise = tf.random.normal(
+      shape=shape, mean=0.0, stddev=self.noise_stddev, 
+      dtype=tf.dtypes.float32, seed=None, name=None)
+    noisy_states = states + gaussian_noise
+
+    # Compute q_values from these states.
+    noisy_outputs = self.online_convnet.call_reg(noisy_states)
+    noisy_q_values = noisy_outputs.q_values
+    noisy_penultimate_out =  noisy_outputs.penultimate_output
+
+    # Select random q-value for each state.
+    # Shape of batch_indices: self.K x 1.
+    batch_indices = tf.cast(tf.range(self.K)[:, None], tf.int64)
+    num_q_values = noisy_q_values.shape[-1]
+    selected_q_value_indices = tf.random.uniform(shape=(self.K, 1), minval=0, maxval=num_q_values, dtype=tf.int64)
+    batch_selected_q_value_indices = tf.concat([batch_indices, selected_q_value_indices], axis=1)
+    selected_q_values = tf.gather_nd(noisy_q_values, batch_selected_q_value_indices)
+
+    # Compute the gradient of each network output with respect to each state input. 
+    reg_loss = tf.zeros(shape=(), dtype=tf.dtypes.float32)
+    for k in range(self.K):
+      gradients = tf.expand_dims(tf.gradients(selected_q_values[k], [noisy_penultimate_out], stop_gradients=noisy_penultimate_out)[0][k], axis=0)
+      gradients_reshaped = tf.compat.v1.layers.flatten(gradients)
+      reg_loss += tf.squeeze(tf.square(tf.norm(gradients_reshaped, axis=-1)))
+    reg_loss /= self.K
+
+    return reg_loss
+
   def _build_train_op(self):
     """Builds a training op.
 
@@ -304,11 +357,20 @@ class DQNAgent(object):
         name='replay_chosen_q')
 
     target = tf.stop_gradient(self._build_target_q_op())
-    loss = tf.compat.v1.losses.huber_loss(
+    huber_loss = tf.compat.v1.losses.huber_loss(
         target, replay_chosen_q, reduction=tf.losses.Reduction.NONE)
+    
+    if self.reg_weight > 0:
+      reg_loss = self._build_reg_op()
+      loss = tf.reduce_mean(huber_loss) + self.reg_weight * reg_loss
+    else:
+      loss = huber_loss
+
     if self.summary_writer is not None:
       with tf.compat.v1.variable_scope('Losses'):
-        tf.compat.v1.summary.scalar('HuberLoss', tf.reduce_mean(loss))
+        tf.compat.v1.summary.scalar('HuberLoss', tf.reduce_mean(huber_loss))
+        tf.compat.v1.summary.scalar('RegLoss', reg_loss)
+        tf.compat.v1.summary.scalar('Loss', tf.reduce_mean(loss))
     return self.optimizer.minimize(tf.reduce_mean(loss))
 
   def _build_sync_op(self):

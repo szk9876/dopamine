@@ -58,6 +58,7 @@ NATURE_DQN_DTYPE = tf.uint8  # DType of Atari 2600 observations.
 NATURE_DQN_STACK_SIZE = 4  # Number of frames in the state stack.
 
 DQNNetworkType = collections.namedtuple('dqn_network', ['q_values'])
+DQNRegNetworkType = collections.namedtuple('dqn_network', ['q_values', 'penultimate_output'])
 RainbowNetworkType = collections.namedtuple(
     'c51_network', ['q_values', 'logits', 'probabilities'])
 ImplicitQuantileNetworkType = collections.namedtuple(
@@ -181,7 +182,20 @@ class NatureDQNNetwork(tf.keras.Model):
     x = self.dense1(x)
 
     return DQNNetworkType(self.dense2(x))
-
+  
+  def call_reg(self, state):
+    # Skip these first two steps.
+    # x = tf.cast(state, tf.float32)
+    # x = x / 255
+    x = state
+    x = self.conv1(x)
+    x = self.conv2(x)
+    x = self.conv3(x)
+    x = self.flatten(x)
+    x = self.dense1(x)
+    q_values = self.dense2(x)
+    
+    return DQNRegNetworkType(q_values, x)
 
 class RainbowNetwork(tf.keras.Model):
   """The convolutional network used to compute agent's return distributions."""
