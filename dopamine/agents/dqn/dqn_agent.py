@@ -336,7 +336,8 @@ class DQNAgent(object):
     # Compute the gradient of each network output with respect to each state input. 
     reg_loss = tf.zeros(shape=(), dtype=tf.dtypes.float32)
     for k in range(self.K):
-      gradients = tf.expand_dims(tf.gradients(selected_q_values[k], [noisy_penultimate_out], stop_gradients=noisy_penultimate_out)[0][k], axis=0)
+      # gradients = tf.expand_dims(tf.gradients(selected_q_values[k], [noisy_penultimate_out], stop_gradients=noisy_penultimate_out)[0][k], axis=0)
+      gradients = tf.expand_dims(tf.gradients(selected_q_values[k], [noisy_penultimate_out])[0][k], axis=0)
       gradients_reshaped = tf.compat.v1.layers.flatten(gradients)
       reg_loss += tf.squeeze(tf.square(tf.norm(gradients_reshaped, axis=-1)))
     reg_loss /= self.K
