@@ -343,7 +343,7 @@ class DQNAgent(object):
     reg_loss = tf.zeros(shape=(), dtype=tf.dtypes.float32)
     for k in range(self.K):
       if self.gradient_input == 'state':
-        gradients = tf.expand_dims(tf.gradients(selected_q_values[k], [states], stop_gradients=states)[0][k], axis=0)
+        gradients = tf.expand_dims(tf.gradients(selected_q_values[k], [noisy_states], stop_gradients=noisy_states)[0][k], axis=0)
       elif self.gradient_input == 'penultimate':
         gradients = tf.expand_dims(tf.gradients(selected_q_values[k], [noisy_penultimate_out])[0][k], axis=0)
       gradients_reshaped = tf.compat.v1.layers.flatten(gradients)
