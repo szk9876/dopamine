@@ -326,6 +326,9 @@ class DQNAgent(object):
       dtype=tf.dtypes.float32, seed=None, name=None)
     noisy_states = states + gaussian_noise
 
+    # Clip the values of noisy states to be between 0 and 1.
+    noisy_states = tf.clip_by_value(noisy_states, 0., 1., name=None)
+
     # Compute q_values from these states.
     noisy_outputs = self.online_convnet.call_reg(noisy_states)
     noisy_q_values = noisy_outputs.q_values
