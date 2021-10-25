@@ -38,4 +38,4 @@ WrappedReplayBuffer.batch_size = 128
 DQNAgent.K = 1
 DQNAgent.reg_weight = 0.1
 DQNAgent.noise_stddev = 0.001
-DQNAgent.gradient_input = 'state'
+DQNAgent.gradient_input = 'penultimate'
