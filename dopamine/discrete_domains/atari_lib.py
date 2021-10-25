@@ -208,7 +208,7 @@ class NatureDQNNetwork(tf.keras.Model):
     x = self.conv3(x)
     x = self.flatten(x)
     penultimate_output = self.dense1(x)
-    q_values = self.dense2(x)
+    q_values = self.dense2(penultimate_output)
     
     return DQNRegNetworkType(q_values, penultimate_output, noisy_states)
 

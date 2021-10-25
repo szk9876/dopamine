@@ -165,7 +165,7 @@ class BasicDiscreteDomainNetwork(tf.keras.layers.Layer):
 
     x = self.dense1(x)
     penultimate_output = self.dense2(x)
-    q_values = self.last_layer(x)
+    q_values = self.last_layer(penultimate_output)
 
     return q_values, penultimate_output, noisy_state
 
