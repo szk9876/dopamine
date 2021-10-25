@@ -58,7 +58,7 @@ NATURE_DQN_DTYPE = tf.uint8  # DType of Atari 2600 observations.
 NATURE_DQN_STACK_SIZE = 4  # Number of frames in the state stack.
 
 DQNNetworkType = collections.namedtuple('dqn_network', ['q_values'])
-DQNRegNetworkType = collections.namedtuple('dqn_network', ['q_values', 'penultimate_output'])
+DQNRegNetworkType = collections.namedtuple('dqn_network', ['q_values', 'penultimate_output', 'noisy_states'])
 RainbowNetworkType = collections.namedtuple(
     'c51_network', ['q_values', 'logits', 'probabilities'])
 ImplicitQuantileNetworkType = collections.namedtuple(
@@ -158,6 +158,12 @@ class NatureDQNNetwork(tf.keras.Model):
     self.dense1 = tf.keras.layers.Dense(512, activation=activation_fn,
                                         name='fully_connected')
     self.dense2 = tf.keras.layers.Dense(num_actions, name='fully_connected')
+  
+
+  def normalize(self, state):
+    x = tf.cast(state, tf.float32)
+    x = x / 255
+    return x
 
   def call(self, state):
     """Creates the output tensor/op given the state tensor as input.
@@ -183,19 +189,28 @@ class NatureDQNNetwork(tf.keras.Model):
 
     return DQNNetworkType(self.dense2(x))
   
-  def call_reg(self, state):
-    # Skip these first two steps.
-    # x = tf.cast(state, tf.float32)
-    # x = x / 255
-    x = state
+  def call_reg(self, state, K, noise_stddev):
+    x = self.normalize(state[0:K])
+
+    # Add Gaussian noise to states from the replay buffer.
+    # The standard deviation of the noise is a hyperparameter.
+    shape = (K, NATURE_DQN_OBSERVATION_SHAPE[0], NATURE_DQN_OBSERVATION_SHAPE[1], NATURE_DQN_STACK_SIZE)
+    gaussian_noise = tf.random.normal(
+      shape=shape, mean=0.0, stddev=noise_stddev, 
+      dtype=tf.dtypes.float32, seed=None, name=None)
+    x = x + gaussian_noise
+
+    # Clip the values of noisy states to be between 0 and 1.
+    noisy_states = tf.clip_by_value(x, 0., 1., name=None)
+
     x = self.conv1(x)
     x = self.conv2(x)
     x = self.conv3(x)
     x = self.flatten(x)
-    x = self.dense1(x)
+    penultimate_output = self.dense1(x)
     q_values = self.dense2(x)
     
-    return DQNRegNetworkType(q_values, x)
+    return DQNRegNetworkType(q_values, penultimate_output, noisy_states)
 
 class RainbowNetwork(tf.keras.Model):
   """The convolutional network used to compute agent's return distributions."""

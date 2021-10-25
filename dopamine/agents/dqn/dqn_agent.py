@@ -303,34 +303,8 @@ class DQNAgent(object):
         1. - tf.cast(self._replay.terminals, tf.float32))
 
   def _build_reg_op(self):
-    # Sample K random states. 
-    # shape = (self.K, NATURE_DQN_OBSERVATION_SHAPE[0], NATURE_DQN_OBSERVATION_SHAPE[1], NATURE_DQN_STACK_SIZE)
-    # random_states = tf.random.uniform(
-    #   shape=shape, minval=0, maxval=1, dtype=tf.float32)
-
-    # Compute the network's outputs -> computing q-values for all actions. 
-    # random_q_values = self.online_convnet(random_states).q_values
-
-    # Select the first K states from the states sampled from the replay buffer.
-    states = self._replay.states[0:self.K]
-
-    # Normalize and cast to float dtype.
-    states = tf.cast(states, tf.float32)
-    states = states / 255
-
-    # Add Gaussian noise to states from the replay buffer.
-    # The standard deviation of the noise is a hyperparameter.
-    shape = (self.K, NATURE_DQN_OBSERVATION_SHAPE[0], NATURE_DQN_OBSERVATION_SHAPE[1], NATURE_DQN_STACK_SIZE)
-    gaussian_noise = tf.random.normal(
-      shape=shape, mean=0.0, stddev=self.noise_stddev, 
-      dtype=tf.dtypes.float32, seed=None, name=None)
-    noisy_states = states + gaussian_noise
-
-    # Clip the values of noisy states to be between 0 and 1.
-    noisy_states = tf.clip_by_value(noisy_states, 0., 1., name=None)
-
-    # Compute q_values from these states.
-    noisy_outputs = self.online_convnet.call_reg(noisy_states)
+    noisy_outputs = self.online_convnet.call_reg(self._replay.states, self.K, self.noise_stddev)
+    noisy_states = noisy_outputs.noisy_states
     noisy_q_values = noisy_outputs.q_values
     noisy_penultimate_out =  noisy_outputs.penultimate_output
 

@@ -126,6 +126,15 @@ class BasicDiscreteDomainNetwork(tf.keras.layers.Layer):
     else:
       self.last_layer = tf.keras.layers.Dense(num_actions * num_atoms,
                                               name='fully_connected')
+  
+  def normalize(self, state):
+    x = tf.cast(state, tf.float32)
+    x = self.flatten(x)
+    if self.min_vals is not None:
+      x -= self.min_vals
+      x /= self.max_vals - self.min_vals
+      x = 2.0 * x - 1.0  # Rescale in range [-1, 1].
+    return x
 
   def call(self, state):
     """Creates the output tensor/op given the state tensor as input."""
@@ -139,6 +148,26 @@ class BasicDiscreteDomainNetwork(tf.keras.layers.Layer):
     x = self.dense2(x)
     x = self.last_layer(x)
     return x
+  
+  def call_reg(self, state, K, noise_stddev):
+    x = self.normalize(state[0:K])
+
+    # Add Gaussian noise to states from the replay buffer.
+    # The standard deviation of the noise is a hyperparameter.
+    shape = (K, x.shape[-1])
+    gaussian_noise = tf.random.normal(
+      shape=shape, mean=0.0, stddev=noise_stddev, 
+      dtype=tf.dtypes.float32, seed=None, name=None)
+    noisy_state = x + gaussian_noise
+
+    # Clip the values of noisy states to be between 0 and 1.
+    x = tf.clip_by_value(x, -1., 1., name=None)
+
+    x = self.dense1(x)
+    penultimate_output = self.dense2(x)
+    q_values = self.last_layer(x)
+
+    return q_values, penultimate_output, noisy_state
 
 
 @gin.configurable
@@ -162,6 +191,10 @@ class CartpoleDQNNetwork(tf.keras.Model):
     """Creates the output tensor/op given the state tensor as input."""
     x = self.net(state)
     return atari_lib.DQNNetworkType(x)
+  
+  def call_reg(self, state, K, noise_stddev):
+    q_values, penultimate_output, noisy_states = self.call_reg(state, K, noise_stddev)
+    return atari_lib.DQNRegNetworkType(q_values, penultimate_output, noisy_states)
 
 
 class FourierBasis(object):
@@ -318,6 +351,10 @@ class AcrobotDQNNetwork(tf.keras.Model):
   def call(self, state):
     x = self.net(state)
     return atari_lib.DQNNetworkType(x)
+  
+  def call_reg(self, state, K, noise_stddev):
+    q_values, penultimate_output, noisy_states = self.call_reg(state, K, noise_stddev)
+    return atari_lib.DQNRegNetworkType(q_values, penultimate_output, noisy_states)
 
 
 @gin.configurable
@@ -386,6 +423,10 @@ class LunarLanderDQNNetwork(tf.keras.Model):
     """Creates the output tensor/op given the state tensor as input."""
     x = self.net(state)
     return atari_lib.DQNNetworkType(x)
+  
+  def call_reg(self, state, K, noise_stddev):
+    q_values, penultimate_output, noisy_states = self.call_reg(state, K, noise_stddev)
+    return atari_lib.DQNRegNetworkType(q_values, penultimate_output, noisy_states)
 
 
 @gin.configurable
@@ -407,6 +448,10 @@ class MountainCarDQNNetwork(tf.keras.Model):
     """Creates the output tensor/op given the state tensor as input."""
     x = self.net(state)
     return atari_lib.DQNNetworkType(x)
+
+  def call_reg(self, normalized_state):
+    q_values, x = self.call_reg(normalized_state)
+    return atari_lib.DQNRegNetworkType(q_values, x)
 
 
 @gin.configurable

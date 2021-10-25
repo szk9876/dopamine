@@ -18,23 +18,11 @@ DQNAgent.epsilon_decay_period = 250000  # agent steps
 DQNAgent.tf_device = '/gpu:0'  # use '/cpu:*' for non-GPU version
 DQNAgent.optimizer = @tf.train.AdamOptimizer()
 
-# Smoothness parameters
-DQNAgent.K = 1
-DQNAgent.reg_weight = 0.1
-DQNAgent.noise_stddev = 0.001
-DQNAgent.gradient_input = 'state'  # penultimate
-
 # Smoothness optimizer.
 tf.train.AdamOptimizer.learning_rate = 6.25e-5
 tf.train.AdamOptimizer.beta1 = 0.9
 tf.train.AdamOptimizer.beta2 = 0.999
 tf.train.AdamOptimizer.epsilon = 1.5e-4
-
-# tf.train.RMSPropOptimizer.learning_rate = 6.25e-5
-# tf.train.RMSPropOptimizer.decay = 0.95
-# tf.train.RMSPropOptimizer.momentum = 0.0
-# tf.train.RMSPropOptimizer.epsilon = 0.00001
-# tf.train.RMSPropOptimizer.centered = True
 
 atari_lib.create_atari_environment.game_name = 'Pong'
 # Sticky actions with probability 0.25, as suggested by (Machado et al., 2017).
@@ -47,3 +35,9 @@ Runner.max_steps_per_episode = 27000  # agent steps
 
 WrappedReplayBuffer.replay_capacity = 1000000
 WrappedReplayBuffer.batch_size = 32
+
+# Smoothness parameters
+DQNAgent.K = 1
+DQNAgent.reg_weight = 0.1
+DQNAgent.noise_stddev = 0.001
+DQNAgent.gradient_input = 'state'  # penultimate
