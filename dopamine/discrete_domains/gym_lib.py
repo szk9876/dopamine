@@ -193,7 +193,7 @@ class CartpoleDQNNetwork(tf.keras.Model):
     return atari_lib.DQNNetworkType(x)
   
   def call_reg(self, state, K, noise_stddev):
-    q_values, penultimate_output, noisy_states = self.call_reg(state, K, noise_stddev)
+    q_values, penultimate_output, noisy_states = self.net.call_reg(state, K, noise_stddev)
     return atari_lib.DQNRegNetworkType(q_values, penultimate_output, noisy_states)
 
 
@@ -353,7 +353,7 @@ class AcrobotDQNNetwork(tf.keras.Model):
     return atari_lib.DQNNetworkType(x)
   
   def call_reg(self, state, K, noise_stddev):
-    q_values, penultimate_output, noisy_states = self.call_reg(state, K, noise_stddev)
+    q_values, penultimate_output, noisy_states = self.net.call_reg(state, K, noise_stddev)
     return atari_lib.DQNRegNetworkType(q_values, penultimate_output, noisy_states)
 
 
@@ -425,7 +425,7 @@ class LunarLanderDQNNetwork(tf.keras.Model):
     return atari_lib.DQNNetworkType(x)
   
   def call_reg(self, state, K, noise_stddev):
-    q_values, penultimate_output, noisy_states = self.call_reg(state, K, noise_stddev)
+    q_values, penultimate_output, noisy_states = self.net.call_reg(state, K, noise_stddev)
     return atari_lib.DQNRegNetworkType(q_values, penultimate_output, noisy_states)
 
 
@@ -449,9 +449,9 @@ class MountainCarDQNNetwork(tf.keras.Model):
     x = self.net(state)
     return atari_lib.DQNNetworkType(x)
 
-  def call_reg(self, normalized_state):
-    q_values, x = self.call_reg(normalized_state)
-    return atari_lib.DQNRegNetworkType(q_values, x)
+  def call_reg(self, state, K, noise_stddev):
+    q_values, penultimate_output, noisy_states = self.net.call_reg(state, K, noise_stddev)
+    return atari_lib.DQNRegNetworkType(q_values, penultimate_output, noisy_states)
 
 
 @gin.configurable
