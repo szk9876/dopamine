@@ -161,7 +161,7 @@ class BasicDiscreteDomainNetwork(tf.keras.layers.Layer):
     noisy_state = x + gaussian_noise
 
     # Clip the values of noisy states to be between 0 and 1.
-    x = tf.clip_by_value(x, -1., 1., name=None)
+    x = tf.clip_by_value(noisy_state, -1., 1., name=None)
 
     x = self.dense1(x)
     penultimate_output = self.dense2(x)
