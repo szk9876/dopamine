@@ -106,7 +106,9 @@ class DQNAgent(object):
                K=1,
                reg_weight=0.0,
                noise_stddev=0.0,
-               gradient_input='state'):
+               gradient_input='state',
+               offline_training=False,
+               current_iteration=0):
     """Initializes the agent and constructs the components of its graph.
 
     Args:
@@ -153,6 +155,7 @@ class DQNAgent(object):
       reg_weight: The weight on the regularization term.
       noise_stddev: The standard deviation for the Gaussian noise used to sample states.
       gradient_input: 'state' or 'penultimate'
+      offline_training: Whether or not we are training the agent offline.
     """
     assert isinstance(observation_shape, tuple)
     logging.info('Creating %s agent with the following parameters:',
@@ -196,6 +199,7 @@ class DQNAgent(object):
     self.reg_weight = reg_weight
     self.noise_stddev = noise_stddev
     self.gradient_input = gradient_input
+    self.offline_training = offline_training
 
     with tf.device(tf_device):
       # Create a placeholder for the state input to the DQN network.
@@ -324,7 +328,8 @@ class DQNAgent(object):
       elif self.gradient_input == 'penultimate':
         gradients = tf.expand_dims(tf.gradients(selected_q_values[k], [noisy_penultimate_out])[0][k], axis=0)
       gradients_reshaped = tf.compat.v1.layers.flatten(gradients)
-      reg_loss += tf.squeeze(tf.square(tf.norm(gradients_reshaped, axis=-1)))
+      # reg_loss += tf.squeeze(tf.square(tf.norm(gradients_reshaped, axis=-1)))
+      reg_loss += tf.squeeze(tf.reduce_sum(tf.square(gradients_reshaped), axis=1))
     reg_loss /= self.K
 
     return reg_loss
@@ -416,7 +421,11 @@ class DQNAgent(object):
     self._record_observation(observation)
 
     if not self.eval_mode:
-      self._store_transition(self._last_observation, self.action, reward, False)
+      if self.offline_training:
+        if self._replay.memory.add_count < self.min_replay_history + 1:
+          self._store_transition(self._last_observation, self.action, reward, False)
+      else:
+        self._store_transition(self._last_observation, self.action, reward, False)
       self._train_step()
 
     self.action = self._select_action()

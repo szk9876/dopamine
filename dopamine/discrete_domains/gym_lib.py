@@ -155,15 +155,17 @@ class BasicDiscreteDomainNetwork(tf.keras.layers.Layer):
     # Add Gaussian noise to states from the replay buffer.
     # The standard deviation of the noise is a hyperparameter.
     shape = (K, x.shape[-1])
-    gaussian_noise = tf.random.normal(
-      shape=shape, mean=0.0, stddev=noise_stddev, 
-      dtype=tf.dtypes.float32, seed=None, name=None)
-    noisy_state = x + gaussian_noise
 
-    # Clip the values of noisy states to be between 0 and 1.
-    x = tf.clip_by_value(noisy_state, -1., 1., name=None)
+    if noise_stddev > 0.0:
+      gaussian_noise = tf.random.normal(
+        shape=shape, mean=0.0, stddev=noise_stddev, 
+        dtype=tf.dtypes.float32, seed=None, name=None)
+      x = x + gaussian_noise
+      # Clip the values of noisy states to be between -1 and 1.
+      x = tf.clip_by_value(x, -1., 1., name=None)
+    noisy_state = x
 
-    x = self.dense1(x)
+    x = self.dense1(noisy_state)
     penultimate_output = self.dense2(x)
     q_values = self.last_layer(penultimate_output)
 
