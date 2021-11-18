@@ -94,12 +94,10 @@ class DQNAgent(object):
                eval_mode=False,
                use_staging=False,
                max_tf_checkpoints_to_keep=4,
-               optimizer=tf.compat.v1.train.RMSPropOptimizer(
-                   learning_rate=0.00025,
-                   decay=0.95,
-                   momentum=0.0,
-                   epsilon=0.00001,
-                   centered=True),
+               optimizer=tf.compat.v1.train.AdamOptimizer(
+                 learning_rate=6.25e-5, beta1=0.9,
+                 beta2=0.999, epsilon=1.5e-4, centered=False
+               ),
                summary_writer=None,
                summary_writing_frequency=500,
                allow_partial_reload=False,
@@ -153,6 +151,14 @@ class DQNAgent(object):
       reg_weight: The weight on the regularization term.
       noise_stddev: The standard deviation for the Gaussian noise used to sample states.
       gradient_input: 'state' or 'penultimate'
+
+
+      tf.compat.v1.train.RMSPropOptimizer(
+                   learning_rate=0.00025,
+                   decay=0.95,
+                   momentum=0.0,
+                   epsilon=0.00001,
+                   centered=True)
     """
     assert isinstance(observation_shape, tuple)
     logging.info('Creating %s agent with the following parameters:',
@@ -324,7 +330,6 @@ class DQNAgent(object):
       elif self.gradient_input == 'penultimate':
         gradients = tf.expand_dims(tf.gradients(selected_q_values[k], [noisy_penultimate_out])[0][k], axis=0)
       gradients_reshaped = tf.compat.v1.layers.flatten(gradients)
-      # reg_loss += tf.squeeze(tf.square(tf.norm(gradients_reshaped, axis=-1)))
       reg_loss += tf.squeeze(tf.reduce_sum(tf.square(gradients_reshaped), axis=1))
     reg_loss /= self.K
 
